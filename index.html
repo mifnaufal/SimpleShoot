@@ -76,6 +76,53 @@
             font-size: 12px;
             z-index: 15;
         }
+
+        /* Mobile controls (hidden by default) */
+        #joystick {
+            position: absolute;
+            left: 20px;
+            bottom: 20px;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: none;
+            touch-action: none;
+            z-index: 25;
+        }
+        #joystickKnob {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 60px;
+            height: 60px;
+            margin-left: -30px;
+            margin-top: -30px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            pointer-events: none;
+        }
+        #fireButton {
+            position: absolute;
+            right: 20px;
+            bottom: 40px;
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: rgba(255, 87, 34, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.35);
+            color: white;
+            font-size: 16px;
+            display: none;
+            touch-action: none;
+            z-index: 25;
+            user-select: none;
+        }
+        #fireButton:active {
+            background: rgba(255, 87, 34, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -85,6 +132,12 @@
         <div id="crosshair"></div>
         <button id="startButton" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; font-size: 24px; z-index: 20; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px;">Start Game</button>
         <button id="recallButton" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; display: none; z-index: 20; cursor: pointer; background: #FF5722; color: white; border: none; border-radius: 5px;">Recall</button>
+        
+        <!-- Mobile controls -->
+        <div id="joystick">
+            <div id="joystickKnob"></div>
+        </div>
+        <button id="fireButton">FIRE</button>
         
         <!-- Small game note -->
         <div id="gameNote">
@@ -118,6 +171,10 @@
         const startButton = document.getElementById('startButton');
         const recallButton = document.getElementById('recallButton');
         const restartButton = document.getElementById('restartButton');
+        const joystick = document.getElementById('joystick');
+        const joystickKnob = document.getElementById('joystickKnob');
+        const fireButton = document.getElementById('fireButton');
+        const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         
         // Item types
         const ITEM_TYPES = {
@@ -179,6 +236,15 @@
         // Initialize game as not started
         let gameStarted = false;
         let baseContainerPosition = { x: 0, y: 0 };
+
+        // Mobile control state
+        const mobile = {
+            joystickActive: false,
+            joyCenter: { x: 0, y: 0 },
+            joyValue: { x: 0, y: 0 },
+            fireInterval: null,
+            firing: false
+        };
 
         // Create enemies
         function spawnEnemy() {
@@ -300,18 +366,22 @@
             if (gameState.gameOver) {
                 return;
             }
-            // Player movement
-            if (gameState.keys['w'] || gameState.keys['ArrowUp']) {
-                gameState.player.y -= gameState.player.speed;
+            // Player movement (keyboard + mobile joystick)
+            let moveX = 0, moveY = 0;
+            if (gameState.keys['w'] || gameState.keys['ArrowUp']) moveY -= 1;
+            if (gameState.keys['s'] || gameState.keys['ArrowDown']) moveY += 1;
+            if (gameState.keys['a'] || gameState.keys['ArrowLeft']) moveX -= 1;
+            if (gameState.keys['d'] || gameState.keys['ArrowRight']) moveX += 1;
+            // Apply joystick vector
+            if (Math.abs(mobile.joyValue.x) > 0.01 || Math.abs(mobile.joyValue.y) > 0.01) {
+                moveX += mobile.joyValue.x;
+                moveY += mobile.joyValue.y;
             }
-            if (gameState.keys['s'] || gameState.keys['ArrowDown']) {
-                gameState.player.y += gameState.player.speed;
-            }
-            if (gameState.keys['a'] || gameState.keys['ArrowLeft']) {
-                gameState.player.x -= gameState.player.speed;
-            }
-            if (gameState.keys['d'] || gameState.keys['ArrowRight']) {
-                gameState.player.x += gameState.player.speed;
+            // Normalize to prevent diagonal speed boost
+            if (moveX !== 0 || moveY !== 0) {
+                const len = Math.hypot(moveX, moveY) || 1;
+                gameState.player.x += (moveX / len) * gameState.player.speed;
+                gameState.player.y += (moveY / len) * gameState.player.speed;
             }
             
             // Keep player in bounds
@@ -730,6 +800,36 @@
             fireBullet();
         });
 
+        // Touch aiming on canvas
+        const touchToCanvasPos = (touch) => {
+            const rect = canvas.getBoundingClientRect();
+            return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+        };
+        const touchToContainerPos = (touch) => {
+            const rect = container.getBoundingClientRect();
+            return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+        };
+        canvas.addEventListener('touchstart', (e) => {
+            if (!isTouch) return;
+            const t = e.changedTouches[0];
+            const p = touchToCanvasPos(t);
+            gameState.mouse.x = p.x;
+            gameState.mouse.y = p.y;
+            const pc = touchToContainerPos(t);
+            crosshair.style.left = pc.x + 'px';
+            crosshair.style.top = pc.y + 'px';
+        }, { passive: true });
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isTouch) return;
+            const t = e.changedTouches[0];
+            const p = touchToCanvasPos(t);
+            gameState.mouse.x = p.x;
+            gameState.mouse.y = p.y;
+            const pc = touchToContainerPos(t);
+            crosshair.style.left = pc.x + 'px';
+            crosshair.style.top = pc.y + 'px';
+        }, { passive: true });
+
         // Add event listeners only if elements exist
         if (startButton) {
             startButton.addEventListener('click', () => {
@@ -757,6 +857,81 @@
                 location.reload();
             });
         }
+
+        // Setup mobile controls if on touch device
+        function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+        function setupMobileControls() {
+            if (!isTouch) return;
+            // Show controls
+            joystick.style.display = 'block';
+            fireButton.style.display = 'block';
+
+            // Prevent default gestures that cause scrolling
+            ['touchstart','touchmove','touchend','touchcancel'].forEach(evt => {
+                document.body.addEventListener(evt, (e) => {
+                    if (e.target === joystick || e.target === joystickKnob || e.target === fireButton || e.target === canvas) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+            });
+
+            const joyRadius = 50; // movement radius in px
+
+            const getTouch = (e) => (e.changedTouches && e.changedTouches[0]) || null;
+            const joyStart = (e) => {
+                const t = getTouch(e); if (!t) return;
+                const rect = joystick.getBoundingClientRect();
+                mobile.joystickActive = true;
+                mobile.joyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+                joyMove(e);
+            };
+            const joyMove = (e) => {
+                if (!mobile.joystickActive) return;
+                const t = getTouch(e); if (!t) return;
+                const dx = t.clientX - mobile.joyCenter.x;
+                const dy = t.clientY - mobile.joyCenter.y;
+                const dist = Math.hypot(dx, dy);
+                const clampedDist = Math.min(dist, joyRadius);
+                const nx = dist ? dx / dist : 0;
+                const ny = dist ? dy / dist : 0;
+                mobile.joyValue.x = (clampedDist / joyRadius) * nx;
+                mobile.joyValue.y = (clampedDist / joyRadius) * ny;
+                // Move knob
+                joystickKnob.style.marginLeft = (-30 + nx * clampedDist) + 'px';
+                joystickKnob.style.marginTop = (-30 + ny * clampedDist) + 'px';
+            };
+            const joyEnd = () => {
+                mobile.joystickActive = false;
+                mobile.joyValue.x = 0; mobile.joyValue.y = 0;
+                joystickKnob.style.marginLeft = '-30px';
+                joystickKnob.style.marginTop = '-30px';
+            };
+            joystick.addEventListener('touchstart', joyStart, { passive: false });
+            joystick.addEventListener('touchmove', joyMove, { passive: false });
+            joystick.addEventListener('touchend', joyEnd, { passive: false });
+            joystick.addEventListener('touchcancel', joyEnd, { passive: false });
+
+            // Fire button (auto-fire while held)
+            const startFiring = () => {
+                if (mobile.firing) return;
+                mobile.firing = true;
+                fireBullet();
+                mobile.fireInterval = setInterval(fireBullet, 200);
+            };
+            const stopFiring = () => {
+                mobile.firing = false;
+                if (mobile.fireInterval) {
+                    clearInterval(mobile.fireInterval);
+                    mobile.fireInterval = null;
+                }
+            };
+            fireButton.addEventListener('touchstart', (e) => { e.preventDefault(); startFiring(); }, { passive: false });
+            fireButton.addEventListener('touchend', (e) => { e.preventDefault(); stopFiring(); }, { passive: false });
+            fireButton.addEventListener('touchcancel', (e) => { e.preventDefault(); stopFiring(); }, { passive: false });
+        }
+
+        // Initialize mobile controls on load
+        setupMobileControls();
     </script>
 </body>
 </html>
