@@ -76,10 +76,10 @@
         /* Mobile controls */
         #joystick {
             position: absolute;
-            left: 20px;
+            left: 20%; /* Pindah ke posisi kanan */
             bottom: 20px;
-            width: 100px;
-            height: 100px;
+            width: 120px; /* Ukuran lebih besar */
+            height: 120px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.08);
             border: 2px solid rgba(255, 255, 255, 0.2);
@@ -90,10 +90,10 @@
             position: absolute;
             left: 50%;
             top: 50%;
-            width: 50px;
-            height: 50px;
-            margin-left: -25px;
-            margin-top: -25px;
+            width: 60px; /* Ukuran knob lebih besar */
+            height: 60px;
+            margin-left: -30px;
+            margin-top: -30px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.2);
             border: 2px solid rgba(255, 255, 255, 0.35);
@@ -781,8 +781,9 @@
             gameState.keys[e.key.toLowerCase()] = false;
         });
 
-        // Mouse aiming
+        // Mouse aiming (only for desktop)
         function updateMousePosition(e) {
+            if (isTouch) return; // Hide cursor on mobile
             const rect = canvas.getBoundingClientRect();
             gameState.mouse.x = e.clientX - rect.left;
             gameState.mouse.y = e.clientY - rect.top;
@@ -795,7 +796,7 @@
         
         canvas.addEventListener('mousemove', updateMousePosition);
         
-        // Touch aiming
+        // Touch aiming and shooting
         function handleTouch(e) {
             e.preventDefault();
             const touch = e.touches[0];
@@ -803,15 +804,17 @@
             gameState.mouse.x = touch.clientX - rect.left;
             gameState.mouse.y = touch.clientY - rect.top;
             
-            // Calculate crosshair position relative to container
-            const containerRect = container.getBoundingClientRect();
-            crosshair.style.left = (touch.clientX - containerRect.left) + 'px';
-            crosshair.style.top = (touch.clientY - containerRect.top) + 'px';
+            // For desktop, update crosshair
+            if (!isTouch) {
+                const containerRect = container.getBoundingClientRect();
+                crosshair.style.left = (touch.clientX - containerRect.left) + 'px';
+                crosshair.style.top = (touch.clientY - containerRect.top) + 'px';
+            }
         }
         
         // Shooting on mouse click or touch
         canvas.addEventListener('mousedown', () => {
-            if (!gameState.gameOver && gameStarted) {
+            if (!isTouch && !gameState.gameOver && gameStarted) {
                 fireBullet();
             }
         });
@@ -882,7 +885,7 @@
             joystick.style.display = 'block';
 
             // Set up joystick
-            const joyRadius = 40; // movement radius in px
+            const joyRadius = 60; // movement radius in px
             const joyRect = joystick.getBoundingClientRect();
             mobile.joyCenter = { 
                 x: joyRect.left + joyRect.width/2, 
