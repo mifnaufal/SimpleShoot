@@ -2,26 +2,37 @@
 <html>
 <head>
     <title>Pixel FPS Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
+        * {
+            touch-action: manipulation;
+        }
+        
         body {
             margin: 0;
             padding: 0;
             background: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
+            overflow: hidden;
             font-family: 'Courier New', monospace;
+            -webkit-tap-highlight-color: transparent;
         }
         
         #gameContainer {
-            position: relative;
-            width: 800px;
-            height: 600px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
             overflow: hidden;
+            touch-action: none;
         }
         
         #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background: #111;
             image-rendering: pixelated;
         }
@@ -33,6 +44,7 @@
             color: white;
             font-size: 20px;
             z-index: 10;
+            text-shadow: 0 0 3px black;
         }
         
         #crosshair {
@@ -46,24 +58,6 @@
             transform: translate(-50%, -50%);
         }
         
-        .pixel {
-            position: absolute;
-            background: white;
-        }
-        
-        .player {
-            background: #4A90E2;
-        }
-        
-        .enemy {
-            background: #E74C3C;
-        }
-        
-        .bullet {
-            background: yellow;
-            border-radius: 50%;
-        }
-        
         #gameNote {
             position: absolute;
             bottom: 20px;
@@ -75,83 +69,63 @@
             border-radius: 5px;
             font-size: 12px;
             z-index: 15;
+            text-align: center;
+            max-width: 80%;
         }
 
-        /* Mobile controls (hidden by default) */
+        /* Mobile controls */
         #joystick {
             position: absolute;
             left: 20px;
             bottom: 20px;
-            width: 120px;
-            height: 120px;
+            width: 100px;
+            height: 100px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.08);
             border: 2px solid rgba(255, 255, 255, 0.2);
             display: none;
-            touch-action: none;
             z-index: 25;
         }
         #joystickKnob {
             position: absolute;
             left: 50%;
             top: 50%;
-            width: 60px;
-            height: 60px;
-            margin-left: -30px;
-            margin-top: -30px;
+            width: 50px;
+            height: 50px;
+            margin-left: -25px;
+            margin-top: -25px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.2);
             border: 2px solid rgba(255, 255, 255, 0.35);
-            pointer-events: none;
-        }
-        #fireButton {
-            position: absolute;
-            right: 20px;
-            bottom: 40px;
-            width: 90px;
-            height: 90px;
-            border-radius: 50%;
-            background: rgba(255, 87, 34, 0.6);
-            border: 2px solid rgba(255, 255, 255, 0.35);
-            color: white;
-            font-size: 16px;
-            display: none;
-            touch-action: none;
-            z-index: 25;
-            user-select: none;
-        }
-        #fireButton:active {
-            background: rgba(255, 87, 34, 0.8);
         }
     </style>
 </head>
 <body>
     <div id="gameContainer">
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <canvas id="gameCanvas"></canvas>
         <div id="ui">Health: <span id="health">100</span> | Score: <span id="score">0</span> | Stage: <span id="stage">1</span></div>
         <div id="crosshair"></div>
-        <button id="startButton" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; font-size: 24px; z-index: 20; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px;">Start Game</button>
-        <button id="recallButton" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; display: none; z-index: 20; cursor: pointer; background: #FF5722; color: white; border: none; border-radius: 5px;">Recall</button>
+        <button id="startButton" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 20px 40px; font-size: 24px; z-index: 20; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Start Game</button>
+        <button id="recallButton" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 10px 20px; display: none; z-index: 20; cursor: pointer; background: #FF5722; color: white; border: none; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Recall</button>
         
         <!-- Mobile controls -->
         <div id="joystick">
             <div id="joystickKnob"></div>
         </div>
-        <button id="fireButton">FIRE</button>
         
         <!-- Small game note -->
         <div id="gameNote">
             Use WASD/Arrow keys to move<br>
-            Click mouse to shoot<br>
+            Tap screen to shoot<br>
             Triple Shot → +30 Health → Full Health every 20s
         </div>
     </div>
 
     <!-- Game over modal -->
-    <div id="gameOverModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; display: none;">
-        <div style="background: #333; padding: 20px; border-radius: 10px; text-align: center;">
-            <h2 id="finalScoreMessage" style="color: white;"></h2>
-            <button id="restartButton" style="padding: 10px 20px; font-size: 18px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px; margin-top: 10px;">Restart Game</button>
+    <div id="gameOverModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 100; justify-content: center; align-items: center; display: none; overflow: hidden;">
+        <div style="background: #333; padding: 20px; border-radius: 10px; text-align: center; max-width: 80%;">
+            <h2 id="finalScoreMessage" style="color: white; margin-top: 0;"></h2>
+            <button id="restartButton" style="padding: 10px 20px; font-size: 18px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px; margin-top: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);">Restart Game</button>
         </div>
     </div>
 
@@ -173,7 +147,6 @@
         const restartButton = document.getElementById('restartButton');
         const joystick = document.getElementById('joystick');
         const joystickKnob = document.getElementById('joystickKnob');
-        const fireButton = document.getElementById('fireButton');
         const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
         
         // Item types
@@ -203,7 +176,7 @@
             bullets: [],
             items: [],          // Array for collectible items
             explosions: [],      // Array for explosion effects
-            deathExplosion: {    // NEW: Death explosion particles
+            deathExplosion: {    // Death explosion particles
                 active: false,
                 particles: [],
                 maxParticles: 50
@@ -219,14 +192,14 @@
             nextItemTime: 0,          // Time for next item spawn
             currentItemIndex: 0,      // Current item in sequence (0,1,2)
             itemSpawnInterval: 20000, // 20 seconds between items
-            screenShake: {            // NEW: Screen shake system
+            screenShake: {            // Screen shake system
                 active: false,
                 intensity: 0,
                 duration: 0,
                 maxIntensity: 0,
                 time: 0
             },
-            hitEffect: {              // NEW: Hit effect
+            hitEffect: {              // Hit effect
                 active: false,
                 time: 0,
                 maxTime: 200
@@ -242,9 +215,23 @@
             joystickActive: false,
             joyCenter: { x: 0, y: 0 },
             joyValue: { x: 0, y: 0 },
-            fireInterval: null,
-            firing: false
+            firing: false,
+            lastFireTime: 0,
+            fireCooldown: 200 // 5 shots per second
         };
+
+        // Resize canvas to fill container
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            
+            // Adjust player position if needed
+            if (gameState.player) {
+                gameState.player.x = Math.min(canvas.width - gameState.player.width, gameState.player.x);
+                gameState.player.y = Math.min(canvas.height - gameState.player.height, gameState.player.y);
+            }
+        }
 
         // Create enemies
         function spawnEnemy() {
@@ -280,7 +267,7 @@
             });
         }
         
-        // NEW: Create death explosion particles
+        // Create death explosion particles
         function createDeathExplosion(x, y) {
             gameState.deathExplosion.active = true;
             gameState.deathExplosion.particles = [];
@@ -303,7 +290,7 @@
             }
         }
         
-        // NEW: Create hit effect (screen shake + red flash)
+        // Create hit effect (screen shake + red flash)
         function createHitEffect() {
             gameState.hitEffect.active = true;
             gameState.hitEffect.time = Date.now();
@@ -316,7 +303,7 @@
             gameState.screenShake.time = Date.now();
         }
         
-        // NEW: Create enemy kill screen shake
+        // Create enemy kill screen shake
         function createEnemyKillShake() {
             gameState.screenShake.active = true;
             gameState.screenShake.intensity = 1.5;
@@ -327,6 +314,10 @@
 
         // Fire bullet
         function fireBullet() {
+            const now = Date.now();
+            if (now - mobile.lastFireTime < mobile.fireCooldown) return;
+            mobile.lastFireTime = now;
+            
             const angle = Math.atan2(
                 gameState.mouse.y - gameState.player.y,
                 gameState.mouse.x - gameState.player.x
@@ -418,7 +409,7 @@
                     gameState.player.health -= 0.5;
                     healthDisplay.textContent = Math.max(0, Math.floor(gameState.player.health));
                     
-                    // NEW: Create hit effect
+                    // Create hit effect
                     createHitEffect();
                 }
             });
@@ -453,7 +444,7 @@
                         gameState.bullets.splice(i, 1);
                         
                         if (enemy.health <= 0) {
-                            // NEW: Create explosion effect
+                            // Create explosion effect
                             gameState.explosions.push({
                                 x: enemy.x + enemy.width/2,
                                 y: enemy.y + enemy.height/2,
@@ -462,7 +453,7 @@
                                 speed: 2
                             });
                             
-                            // NEW: Create enemy kill screen shake
+                            // Create enemy kill screen shake
                             createEnemyKillShake();
                             
                             gameState.enemies.splice(j, 1);
@@ -489,7 +480,7 @@
                 }
             }
             
-            // NEW: Update death explosion particles
+            // Update death explosion particles
             if (gameState.deathExplosion.active) {
                 for (let i = gameState.deathExplosion.particles.length - 1; i >= 0; i--) {
                     const p = gameState.deathExplosion.particles[i];
@@ -508,7 +499,7 @@
                 }
             }
             
-            // NEW: Update screen shake
+            // Update screen shake
             if (gameState.screenShake.active) {
                 const elapsed = now - gameState.screenShake.time;
                 if (elapsed > gameState.screenShake.duration) {
@@ -519,7 +510,7 @@
                 }
             }
             
-            // NEW: Update hit effect
+            // Update hit effect
             if (gameState.hitEffect.active) {
                 if (now - gameState.hitEffect.time > gameState.hitEffect.maxTime) {
                     gameState.hitEffect.active = false;
@@ -600,7 +591,7 @@
             
             // Check game over
             if (gameState.player.health <= 0 && !gameState.gameOver) {
-                // NEW: Create death explosion at player position
+                // Create death explosion at player position
                 createDeathExplosion(gameState.player.x + 10, gameState.player.y + 10);
                 
                 finalScoreMessage.textContent = `Game Over! Final Score: ${gameState.player.score}`;
@@ -617,7 +608,7 @@
             }
         }
 
-        // NEW: Apply screen shake to container
+        // Apply screen shake to container
         function applyScreenShake() {
             if (gameState.screenShake.active) {
                 const shakeX = (Math.random() - 0.5) * gameState.screenShake.intensity * 2;
@@ -637,7 +628,7 @@
             ctx.fillStyle = '#111';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // NEW: Draw hit effect (red flash)
+            // Draw hit effect (red flash)
             if (gameState.hitEffect.active) {
                 const elapsed = Date.now() - gameState.hitEffect.time;
                 const intensity = 0.5 * (1 - elapsed / gameState.hitEffect.maxTime);
@@ -726,7 +717,7 @@
                 ctx.stroke();
             });
             
-            // NEW: Draw death explosion
+            // Draw death explosion
             if (gameState.deathExplosion.active) {
                 gameState.deathExplosion.particles.forEach(p => {
                     ctx.globalAlpha = p.alpha;
@@ -776,6 +767,11 @@
             requestAnimationFrame(gameLoop);
         }
 
+        // Handle window resize
+        window.addEventListener('resize', resizeCanvas);
+        // Initial sizing
+        resizeCanvas();
+
         // Event listeners
         window.addEventListener('keydown', e => {
             gameState.keys[e.key.toLowerCase()] = true;
@@ -785,7 +781,8 @@
             gameState.keys[e.key.toLowerCase()] = false;
         });
 
-        canvas.addEventListener('mousemove', e => {
+        // Mouse aiming
+        function updateMousePosition(e) {
             const rect = canvas.getBoundingClientRect();
             gameState.mouse.x = e.clientX - rect.left;
             gameState.mouse.y = e.clientY - rect.top;
@@ -794,41 +791,58 @@
             const containerRect = container.getBoundingClientRect();
             crosshair.style.left = (e.clientX - containerRect.left) + 'px';
             crosshair.style.top = (e.clientY - containerRect.top) + 'px';
-        });
-
-        canvas.addEventListener('mousedown', () => {
-            fireBullet();
-        });
-
-        // Touch aiming on canvas
-        const touchToCanvasPos = (touch) => {
+        }
+        
+        canvas.addEventListener('mousemove', updateMousePosition);
+        
+        // Touch aiming
+        function handleTouch(e) {
+            e.preventDefault();
+            const touch = e.touches[0];
             const rect = canvas.getBoundingClientRect();
-            return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
-        };
-        const touchToContainerPos = (touch) => {
-            const rect = container.getBoundingClientRect();
-            return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
-        };
+            gameState.mouse.x = touch.clientX - rect.left;
+            gameState.mouse.y = touch.clientY - rect.top;
+            
+            // Calculate crosshair position relative to container
+            const containerRect = container.getBoundingClientRect();
+            crosshair.style.left = (touch.clientX - containerRect.left) + 'px';
+            crosshair.style.top = (touch.clientY - containerRect.top) + 'px';
+        }
+        
+        // Shooting on mouse click or touch
+        canvas.addEventListener('mousedown', () => {
+            if (!gameState.gameOver && gameStarted) {
+                fireBullet();
+            }
+        });
+        
         canvas.addEventListener('touchstart', (e) => {
-            if (!isTouch) return;
-            const t = e.changedTouches[0];
-            const p = touchToCanvasPos(t);
-            gameState.mouse.x = p.x;
-            gameState.mouse.y = p.y;
-            const pc = touchToContainerPos(t);
-            crosshair.style.left = pc.x + 'px';
-            crosshair.style.top = pc.y + 'px';
-        }, { passive: true });
-        canvas.addEventListener('touchmove', (e) => {
-            if (!isTouch) return;
-            const t = e.changedTouches[0];
-            const p = touchToCanvasPos(t);
-            gameState.mouse.x = p.x;
-            gameState.mouse.y = p.y;
-            const pc = touchToContainerPos(t);
-            crosshair.style.left = pc.x + 'px';
-            crosshair.style.top = pc.y + 'px';
-        }, { passive: true });
+            e.preventDefault();
+            handleTouch(e);
+            if (!gameState.gameOver && gameStarted) {
+                mobile.firing = true;
+                fireBullet();
+                mobile.fireInterval = setInterval(fireBullet, mobile.fireCooldown);
+            }
+        }, { passive: false });
+        
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            mobile.firing = false;
+            if (mobile.fireInterval) {
+                clearInterval(mobile.fireInterval);
+                mobile.fireInterval = null;
+            }
+        }, { passive: false });
+        
+        canvas.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            mobile.firing = false;
+            if (mobile.fireInterval) {
+                clearInterval(mobile.fireInterval);
+                mobile.fireInterval = null;
+            }
+        }, { passive: false });
 
         // Add event listeners only if elements exist
         if (startButton) {
@@ -837,7 +851,7 @@
                 startButton.style.display = 'none';
                 document.getElementById('gameNote').style.display = 'none'; // Hide note when game starts
                 
-                // Initialize timed item spawning (start 20 seconds after game start)
+                // Initialize timed item spawning
                 gameState.nextItemTime = Date.now() + gameState.itemSpawnInterval;
                 
                 gameLoop();
@@ -860,77 +874,65 @@
 
         // Setup mobile controls if on touch device
         function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+        
         function setupMobileControls() {
             if (!isTouch) return;
-            // Show controls
+            
+            // Show joystick control
             joystick.style.display = 'block';
-            fireButton.style.display = 'block';
 
-            // Prevent default gestures that cause scrolling
-            ['touchstart','touchmove','touchend','touchcancel'].forEach(evt => {
-                document.body.addEventListener(evt, (e) => {
-                    if (e.target === joystick || e.target === joystickKnob || e.target === fireButton || e.target === canvas) {
-                        e.preventDefault();
-                    }
-                }, { passive: false });
-            });
-
-            const joyRadius = 50; // movement radius in px
-
-            const getTouch = (e) => (e.changedTouches && e.changedTouches[0]) || null;
-            const joyStart = (e) => {
-                const t = getTouch(e); if (!t) return;
-                const rect = joystick.getBoundingClientRect();
-                mobile.joystickActive = true;
-                mobile.joyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
-                joyMove(e);
+            // Set up joystick
+            const joyRadius = 40; // movement radius in px
+            const joyRect = joystick.getBoundingClientRect();
+            mobile.joyCenter = { 
+                x: joyRect.left + joyRect.width/2, 
+                y: joyRect.top + joyRect.height/2 
             };
-            const joyMove = (e) => {
+
+            function handleJoystickStart(e) {
+                e.preventDefault();
+                mobile.joystickActive = true;
+                const touch = e.touches[0];
+                mobile.joyCenter = { 
+                    x: touch.clientX, 
+                    y: touch.clientY 
+                };
+                handleJoystickMove(e);
+            }
+            
+            function handleJoystickMove(e) {
                 if (!mobile.joystickActive) return;
-                const t = getTouch(e); if (!t) return;
-                const dx = t.clientX - mobile.joyCenter.x;
-                const dy = t.clientY - mobile.joyCenter.y;
+                e.preventDefault();
+                const touch = e.touches[0];
+                const dx = touch.clientX - mobile.joyCenter.x;
+                const dy = touch.clientY - mobile.joyCenter.y;
                 const dist = Math.hypot(dx, dy);
                 const clampedDist = Math.min(dist, joyRadius);
                 const nx = dist ? dx / dist : 0;
                 const ny = dist ? dy / dist : 0;
                 mobile.joyValue.x = (clampedDist / joyRadius) * nx;
                 mobile.joyValue.y = (clampedDist / joyRadius) * ny;
-                // Move knob
-                joystickKnob.style.marginLeft = (-30 + nx * clampedDist) + 'px';
-                joystickKnob.style.marginTop = (-30 + ny * clampedDist) + 'px';
-            };
-            const joyEnd = () => {
+                
+                // Move knob with clamping
+                const knobX = clamp(nx * clampedDist, -joyRadius, joyRadius);
+                const knobY = clamp(ny * clampedDist, -joyRadius, joyRadius);
+                joystickKnob.style.transform = `translate(${knobX}px, ${knobY}px)`;
+            }
+            
+            function handleJoystickEnd() {
                 mobile.joystickActive = false;
-                mobile.joyValue.x = 0; mobile.joyValue.y = 0;
-                joystickKnob.style.marginLeft = '-30px';
-                joystickKnob.style.marginTop = '-30px';
-            };
-            joystick.addEventListener('touchstart', joyStart, { passive: false });
-            joystick.addEventListener('touchmove', joyMove, { passive: false });
-            joystick.addEventListener('touchend', joyEnd, { passive: false });
-            joystick.addEventListener('touchcancel', joyEnd, { passive: false });
-
-            // Fire button (auto-fire while held)
-            const startFiring = () => {
-                if (mobile.firing) return;
-                mobile.firing = true;
-                fireBullet();
-                mobile.fireInterval = setInterval(fireBullet, 200);
-            };
-            const stopFiring = () => {
-                mobile.firing = false;
-                if (mobile.fireInterval) {
-                    clearInterval(mobile.fireInterval);
-                    mobile.fireInterval = null;
-                }
-            };
-            fireButton.addEventListener('touchstart', (e) => { e.preventDefault(); startFiring(); }, { passive: false });
-            fireButton.addEventListener('touchend', (e) => { e.preventDefault(); stopFiring(); }, { passive: false });
-            fireButton.addEventListener('touchcancel', (e) => { e.preventDefault(); stopFiring(); }, { passive: false });
+                mobile.joyValue.x = 0; 
+                mobile.joyValue.y = 0;
+                joystickKnob.style.transform = 'translate(0, 0)';
+            }
+            
+            joystick.addEventListener('touchstart', handleJoystickStart, { passive: false });
+            joystick.addEventListener('touchmove', handleJoystickMove, { passive: false });
+            joystick.addEventListener('touchend', handleJoystickEnd, { passive: false });
+            joystick.addEventListener('touchcancel', handleJoystickEnd, { passive: false });
         }
 
-        // Initialize mobile controls on load
+        // Initialize mobile controls
         setupMobileControls();
     </script>
 </body>
