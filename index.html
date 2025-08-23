@@ -606,6 +606,15 @@
             } else {
                 recallButton.style.display = 'none';
             }
+
+            // Win condition: reach stage 5 and score >= 1500
+            if (!gameState.gameOver && currentStage >= 5 && gameState.player.score >= 1500) {
+                finalScoreMessage.textContent = `You Win! Final Score: ${gameState.player.score}`;
+                gameOverModal.style.display = 'flex';
+                gameState.gameOver = true;
+                gameState.finished = true;
+                return;
+            }
         }
 
         // Apply screen shake to container
